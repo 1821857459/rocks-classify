@@ -23,10 +23,20 @@ y_train = train_data.iloc[:, 0]
 label_encoder = LabelEncoder()
 y_train_encoded = label_encoder.fit_transform(y_train)
 
-# 构建集成模型（XGB + ET + LGBM）
+# 构建集成模型（XGB + ET + 优化版 LGBM）
 xgb = XGBClassifier(n_estimators=100, eval_metric='mlogloss', random_state=42)
 et = ExtraTreesClassifier(n_estimators=100, random_state=42)
-lgbm = LGBMClassifier(n_estimators=100, random_state=42)
+lgbm = LGBMClassifier(
+    n_estimators=300,
+    learning_rate=0.05,
+    max_depth=7,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_alpha=0.1,
+    reg_lambda=0.1,
+    random_state=42
+)
 
 # 使用硬投票来计算最终预测结果
 hard_voting_model = VotingClassifier(estimators=[
