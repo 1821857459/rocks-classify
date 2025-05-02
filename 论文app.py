@@ -27,7 +27,7 @@ y_train_encoded = label_encoder.fit_transform(y_train)
 xgb = XGBClassifier(n_estimators=100, eval_metric='mlogloss', random_state=42)
 et = ExtraTreesClassifier(n_estimators=100, random_state=42)
 lgbm = LGBMClassifier(
-    n_estimators=300,
+    n_estimators=100,
     learning_rate=0.05,
     max_depth=7,
     num_leaves=31,
