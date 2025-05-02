@@ -88,7 +88,7 @@ if uploaded_file is not None:
     st.download_button("Download Prediction Results", data=to_write.getvalue(), file_name="predicted_results.xlsx")
 
     # 6. 绘制散点图（SiO2 vs MgO）
-    img_path = r"D:\JupyterNotebook\lab\MgO-SiO2.jpg"
+    img_path = r"MgO-SiO2.jpg"
     img = Image.open(img_path)
 
     if 'SiO2' in input_data.columns and 'MgO' in input_data.columns:
