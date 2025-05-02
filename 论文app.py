@@ -11,10 +11,10 @@ from PIL import Image
 import io
 
 # 页面配置
-st.set_page_config(page_title="High Magnesium Andesite Rock Classification Prediction", layout="wide")
+st.set_page_config(page_title="Rock Classification Prediction", layout="wide")
 
 # 1. 加载训练集
-train_file_path = r"D:\JupyterNotebook\lab\FAB-Boninite-HMA-IAT-CA.xlsx"
+train_file_path = r"FAB-Boninite-HMA-IAT-CA.xlsx"
 train_data = pd.read_excel(train_file_path)
 
 # 2. 数据预处理
