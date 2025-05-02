@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import VotingClassifier, ExtraTreesClassifier
+from sklearn.ensemble import VotingClassifier, ExtraTreesClassifier, RandomForestClassifier
 from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
@@ -23,18 +22,12 @@ y_train = train_data.iloc[:, 0]
 label_encoder = LabelEncoder()
 y_train_encoded = label_encoder.fit_transform(y_train)
 
-# 构建集成模型（XGB + ET + 优化版 LGBM）
+# 构建集成模型（XGB + ET + RF）
 xgb = XGBClassifier(n_estimators=100, eval_metric='mlogloss', random_state=42)
 et = ExtraTreesClassifier(n_estimators=100, random_state=42)
-lgbm = LGBMClassifier(
+rf = RandomForestClassifier(
     n_estimators=100,
-    learning_rate=0.05,
     max_depth=7,
-    num_leaves=31,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    reg_alpha=0.1,
-    reg_lambda=0.1,
     random_state=42
 )
 
@@ -42,7 +35,7 @@ lgbm = LGBMClassifier(
 hard_voting_model = VotingClassifier(estimators=[
     ('xgb', xgb),
     ('et', et),
-    ('lgbm', lgbm)
+    ('rf', rf)
 ], voting='hard')
 
 hard_voting_model.fit(X_train, y_train_encoded)
@@ -51,7 +44,7 @@ hard_voting_model.fit(X_train, y_train_encoded)
 soft_voting_model = VotingClassifier(estimators=[
     ('xgb', xgb),
     ('et', et),
-    ('lgbm', lgbm)
+    ('rf', rf)
 ], voting='soft')
 
 soft_voting_model.fit(X_train, y_train_encoded)
