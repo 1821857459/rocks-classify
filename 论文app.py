@@ -72,11 +72,10 @@ if predict_file:
     st.subheader("Prediction Results")
     st.dataframe(input_data)
 
-    # Convert DataFrame to Excel byte stream for download
+    # Download button
     output = io.BytesIO()
     input_data.to_excel(output, index=False, engine="openpyxl")
     output.seek(0)
-
     st.download_button(
         "Download Prediction Results",
         data=output,
@@ -111,14 +110,14 @@ if predict_file:
             ax.set_ylabel('MgO')
             ax.set_title('SiO2-MgO Background Plot by Predicted Class')
             ax.legend()
-            ax.grid(True)
+            ax.grid(False)  # 👈 Remove grid lines
             st.pyplot(fig)
         else:
             st.warning("❗ SiO2 or MgO column missing in input data, unable to plot.")
     except Exception as e:
         st.error(f"❌ Failed to generate plot: {e}")
 
-    # ========== Subduction Event Determination ==========
+    # ========== Subduction Event Detection ==========
     st.subheader("Initial Subduction Event Detection")
     target_classes = {'FAB', 'boninite', 'HMA'}
     detected_classes = set(input_data['Predicted Class'].unique())
@@ -132,12 +131,10 @@ if predict_file:
 
             with st.form("subduction_form"):
                 ages, lons, lats = {}, {}, {}
-
                 for rock in sorted(target_classes):
                     ages[rock] = st.number_input(f"{rock} Age (Ma)", step=0.1, key=f"{rock}_age")
                     lons[rock] = st.number_input(f"{rock} Longitude (°)", step=0.1, key=f"{rock}_lon")
                     lats[rock] = st.number_input(f"{rock} Latitude (°)", step=0.1, key=f"{rock}_lat")
-
                 submitted = st.form_submit_button("Determine if initial subduction event occurred")
 
             if submitted:
@@ -146,7 +143,7 @@ if predict_file:
                 lat_range = max(lats.values()) - min(lats.values())
 
                 if age_range <= 10 and lon_range <= 5 and lat_range <= 5:
-                    st.success("Possible initial subduction event detected! (Based on IBM rock sequence)")
+                    st.success("🎉 Possible initial subduction event detected! (Based on IBM rock sequence)")
                 else:
                     if age_range > 10:
                         st.warning("⚠️ Age range is too wide. Check geological context.")
