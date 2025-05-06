@@ -7,11 +7,12 @@ from sklearn.ensemble import ExtraTreesClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+import io  # Import the io module to handle byte streams
 
-st.set_page_config(page_title="岩石分类预测与俯冲事件识别", layout="wide")
-st.title("🌋 岩石分类预测 + 初始俯冲事件判定")
+st.set_page_config(page_title="Rock Type Prediction and Subduction Event Detection", layout="wide")
+st.title("🌋 Rock Classification Prediction + Initial Subduction Event Identification")
 
-# ========== 加载训练数据 ==========
+# ========== Load Training Data ==========
 train_file_path = "FAB-Boninite-HMA-IAT-CA.xlsx"
 train_data = pd.read_excel(train_file_path)
 X_train = train_data.drop(train_data.columns[0], axis=1)
@@ -35,15 +36,15 @@ soft_ensemble = VotingClassifier(
 
 hard_ensemble.fit(X_train, y_train_encoded)
 soft_ensemble.fit(X_train, y_train_encoded)
-st.success("✅ 模型加载并训练完成（使用本地训练集）")
+st.success("✅ Models loaded and trained successfully")
 
-# ========== 上传预测文件 ==========
-predict_file = st.file_uploader("📂 上传预测数据文件（例如：应用.xlsx）", type=["xlsx"])
+# ========== Upload Prediction File ==========
+predict_file = st.file_uploader("📂 Upload prediction data file (e.g., application.xlsx)", type=["xlsx"])
 if predict_file:
     input_data = pd.read_excel(predict_file)
-    st.success("✅ 预测数据读取成功")
+    st.success("✅ Prediction data loaded successfully")
 
-    # 匹配列名
+    # Match column names
     matching_columns = {}
     processed_train_columns = [col.lower().strip() for col in X_train.columns]
     processed_input_columns = [col.lower().strip() for col in input_data.columns]
@@ -68,13 +69,24 @@ if predict_file:
     input_data["Predicted Class"] = predicted_labels
     input_data["Confidence"] = confidences
 
-    st.subheader("📊 预测结果")
+    st.subheader("📊 Prediction Results")
     st.dataframe(input_data)
 
-    st.download_button("📥 下载预测结果", data=input_data.to_excel(index=False), file_name="predicted_results.xlsx")
+    # Convert DataFrame to Excel byte stream for download
+    output = io.BytesIO()
+    input_data.to_excel(output, index=False, engine="openpyxl")
+    output.seek(0)  # Reset the pointer to the start of the byte stream
 
-    # ========== 背景图散点图 ==========
-    st.subheader("🧪 SiO2-MgO 背景图预测分布")
+    # Provide the download button for the Excel file
+    st.download_button(
+        "📥 Download Prediction Results",
+        data=output,
+        file_name="predicted_results.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    # ========== SiO2-MgO Scatter Plot ==========
+    st.subheader("🧪 SiO2-MgO Background Plot of Prediction")
     try:
         img = Image.open("MgO-SiO2.jpg")
         if 'SiO2' in input_data.columns and 'MgO' in input_data.columns:
@@ -103,42 +115,42 @@ if predict_file:
             ax.grid(True)
             st.pyplot(fig)
         else:
-            st.warning("❗ 输入数据缺少 SiO2 或 MgO 列，无法绘图")
+            st.warning("❗ SiO2 or MgO column missing in input data, unable to plot.")
     except Exception as e:
-        st.error(f"❌ 图像绘制失败：{e}")
+        st.error(f"❌ Failed to generate plot: {e}")
 
-    # ========== 初始俯冲事件判定 ==========
-    st.subheader("🧭 初始俯冲事件判定")
+    # ========== Subduction Event Determination ==========
+    st.subheader("🧭 Initial Subduction Event Detection")
     target_classes = {'FAB', 'boninite', 'HMA'}
     detected_classes = set(input_data['Predicted Class'].unique())
     intersection = detected_classes & target_classes
 
     if intersection:
-        st.info(f"🔍 检测到关键岩石类型：{', '.join(intersection)}")
+        st.info(f"🔍 Detected key rock types: {', '.join(intersection)}")
 
         if intersection == target_classes:
-            st.success("✅ 检测到 FAB、boninite 和 HMA，请输入地质信息：")
+            st.success("✅ All FAB, boninite, and HMA detected. Please input geological information:")
             ages, lons, lats = {}, {}, {}
 
             for rock in sorted(target_classes):
-                ages[rock] = st.number_input(f"{rock} 年龄 (Ma)", step=0.1)
-                lons[rock] = st.number_input(f"{rock} 经度 (°)", step=0.1)
-                lats[rock] = st.number_input(f"{rock} 纬度 (°)", step=0.1)
+                ages[rock] = st.number_input(f"{rock} Age (Ma)", step=0.1)
+                lons[rock] = st.number_input(f"{rock} Longitude (°)", step=0.1)
+                lats[rock] = st.number_input(f"{rock} Latitude (°)", step=0.1)
 
-            if st.button("🚀 判定区域是否存在初始俯冲事件"):
+            if st.button("🚀 Determine if initial subduction event occurred"):
                 age_range = max(ages.values()) - min(ages.values())
                 lon_range = max(lons.values()) - min(lons.values())
                 lat_range = max(lats.values()) - min(lats.values())
 
                 if age_range <= 10 and lon_range <= 5 and lat_range <= 5:
-                    st.success("🎉 区域可能存在初始俯冲事件！（基于 IBM 岩石序列）")
+                    st.success("🎉 Possible initial subduction event detected! (Based on IBM rock sequence)")
                 else:
                     if age_range > 10:
-                        st.warning("⚠️ 年龄跨度较大，请检查地质背景")
+                        st.warning("⚠️ Age range is too wide. Check geological context.")
                     if lon_range > 5 or lat_range > 5:
-                        st.warning("⚠️ 经纬度跨度较大，请检查样品分布")
+                        st.warning("⚠️ Spatial range is too large. Check sample distribution.")
         else:
             missing = target_classes - intersection
-            st.warning(f"⚠️ 缺失关键类型：{', '.join(missing)}")
+            st.warning(f"⚠️ Missing key rock types: {', '.join(missing)}")
     else:
-        st.error("❌ 未检测到 FAB、boninite 或 HMA")
+        st.error("❌ No FAB, boninite, or HMA detected.")
