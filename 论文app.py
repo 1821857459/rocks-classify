@@ -7,10 +7,10 @@ from sklearn.ensemble import ExtraTreesClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
-import io  # Import the io module to handle byte streams
+import io
 
 st.set_page_config(page_title="Rock Type Prediction and Subduction Event Detection", layout="wide")
-st.title(" Rock Classification Prediction + Initial Subduction Event Identification")
+st.title("Rock Classification Prediction + Initial Subduction Event Identification")
 
 # ========== Load Training Data ==========
 train_file_path = "FAB-Boninite-HMA-IAT-CA.xlsx"
@@ -39,7 +39,7 @@ soft_ensemble.fit(X_train, y_train_encoded)
 st.success("✅ Models loaded and trained successfully")
 
 # ========== Upload Prediction File ==========
-predict_file = st.file_uploader(" Upload prediction data file (e.g., application.xlsx)", type=["xlsx"])
+predict_file = st.file_uploader("Upload prediction data file (e.g., application.xlsx)", type=["xlsx"])
 if predict_file:
     input_data = pd.read_excel(predict_file)
     st.success("✅ Prediction data loaded successfully")
@@ -75,9 +75,8 @@ if predict_file:
     # Convert DataFrame to Excel byte stream for download
     output = io.BytesIO()
     input_data.to_excel(output, index=False, engine="openpyxl")
-    output.seek(0)  # Reset the pointer to the start of the byte stream
+    output.seek(0)
 
-    # Provide the download button for the Excel file
     st.download_button(
         "Download Prediction Results",
         data=output,
@@ -119,40 +118,42 @@ if predict_file:
     except Exception as e:
         st.error(f"❌ Failed to generate plot: {e}")
 
-# ========== Subduction Event Determination ==========
-st.subheader("Initial Subduction Event Detection")
-target_classes = {'FAB', 'boninite', 'HMA'}
-detected_classes = set(input_data['Predicted Class'].unique())
-intersection = detected_classes & target_classes
+    # ========== Subduction Event Determination ==========
+    st.subheader("Initial Subduction Event Detection")
+    target_classes = {'FAB', 'boninite', 'HMA'}
+    detected_classes = set(input_data['Predicted Class'].unique())
+    intersection = detected_classes & target_classes
 
-if intersection:
-    st.info(f"Detected key rock types: {', '.join(intersection)}")
+    if intersection:
+        st.info(f"Detected key rock types: {', '.join(intersection)}")
 
-    if intersection == target_classes:
-        st.success("✅ All FAB, boninite, and HMA detected. Please input geological information:")
+        if intersection == target_classes:
+            st.success("✅ All FAB, boninite, and HMA detected. Please input geological information:")
 
-        ages, lons, lats = {}, {}, {}
-        with st.form("subduction_form"):
-            for rock in sorted(target_classes):
-                ages[rock] = st.number_input(f"{rock} Age (Ma)", step=0.1, key=f"{rock}_age")
-                lons[rock] = st.number_input(f"{rock} Longitude (°)", step=0.1, key=f"{rock}_lon")
-                lats[rock] = st.number_input(f"{rock} Latitude (°)", step=0.1, key=f"{rock}_lat")
-            submitted = st.form_submit_button("🚀 Determine if initial subduction event occurred")
+            with st.form("subduction_form"):
+                ages, lons, lats = {}, {}, {}
 
-        if submitted:
-            age_range = max(ages.values()) - min(ages.values())
-            lon_range = max(lons.values()) - min(lons.values())
-            lat_range = max(lats.values()) - min(lats.values())
+                for rock in sorted(target_classes):
+                    ages[rock] = st.number_input(f"{rock} Age (Ma)", step=0.1, key=f"{rock}_age")
+                    lons[rock] = st.number_input(f"{rock} Longitude (°)", step=0.1, key=f"{rock}_lon")
+                    lats[rock] = st.number_input(f"{rock} Latitude (°)", step=0.1, key=f"{rock}_lat")
 
-            if age_range <= 10 and lon_range <= 5 and lat_range <= 5:
-                st.success("Possible initial subduction event detected! (Based on IBM rock sequence)")
-            else:
-                if age_range > 10:
-                    st.warning("⚠️ Age range is too wide. Check geological context.")
-                if lon_range > 5 or lat_range > 5:
-                    st.warning("⚠️ Spatial range is too large. Check sample distribution.")
+                submitted = st.form_submit_button("Determine if initial subduction event occurred")
+
+            if submitted:
+                age_range = max(ages.values()) - min(ages.values())
+                lon_range = max(lons.values()) - min(lons.values())
+                lat_range = max(lats.values()) - min(lats.values())
+
+                if age_range <= 10 and lon_range <= 5 and lat_range <= 5:
+                    st.success("Possible initial subduction event detected! (Based on IBM rock sequence)")
+                else:
+                    if age_range > 10:
+                        st.warning("⚠️ Age range is too wide. Check geological context.")
+                    if lon_range > 5 or lat_range > 5:
+                        st.warning("⚠️ Spatial range is too large. Check sample distribution.")
+        else:
+            missing = target_classes - intersection
+            st.warning(f"⚠️ Missing key rock types: {', '.join(missing)}")
     else:
-        missing = target_classes - intersection
-        st.warning(f"⚠️ Missing key rock types: {', '.join(missing)}")
-else:
-    st.error("❌ No FAB, boninite, or HMA detected.")
+        st.error("❌ No FAB, boninite, or HMA detected.")
