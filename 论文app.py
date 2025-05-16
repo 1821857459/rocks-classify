@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from sklearn.ensemble import ExtraTreesClassifier, VotingClassifier
 from sklearn.preprocessing import LabelEncoder
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.mixture import GaussianMixture
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 import io
@@ -12,18 +14,22 @@ import io
 st.set_page_config(page_title="Rock Type Prediction and Subduction Event Detection", layout="wide")
 st.title("Rock Classification Prediction + Initial Subduction Event Identification")
 
-# ========== Load Training Data ==========
-train_file_path = "FAB-Boninite-HMA-IAT-CA.xlsx"
-train_data = pd.read_excel(train_file_path)
-X_train = train_data.drop(train_data.columns[0], axis=1)
-y_train = train_data.iloc[:, 0]
-
-label_encoder = LabelEncoder()
-y_train_encoded = label_encoder.fit_transform(y_train)
-
-# ========== Cached Model Training ==========
+# --------- 缓存训练数据和模型 ---------
 @st.cache_resource
-def load_models(X, y):
+def load_data_and_models():
+    train_file_path = "FAB-Boninite-HMA-IAT-CA.xlsx"
+    train_data = pd.read_excel(train_file_path)
+
+    X_train = train_data.drop(train_data.columns[0], axis=1)
+    y_train = train_data.iloc[:, 0]
+
+    label_encoder = LabelEncoder()
+    y_train_encoded = label_encoder.fit_transform(y_train)
+
+    # 训练集缺失值用均值填充，方便LDA等后续步骤
+    X_train_filled = X_train.fillna(X_train.mean())
+
+    # 定义模型
     model_et = ExtraTreesClassifier(n_estimators=100, random_state=42)
     model_xgb = XGBClassifier(eval_metric='mlogloss', random_state=42)
     model_lgbm = LGBMClassifier(random_state=42)
@@ -37,37 +43,40 @@ def load_models(X, y):
         voting='soft'
     )
 
-    hard_ensemble.fit(X, y)
-    soft_ensemble.fit(X, y)
+    hard_ensemble.fit(X_train_filled, y_train_encoded)
+    soft_ensemble.fit(X_train_filled, y_train_encoded)
 
-    return hard_ensemble, soft_ensemble
+    return X_train, X_train_filled, y_train, y_train_encoded, label_encoder, hard_ensemble, soft_ensemble
 
-hard_ensemble, soft_ensemble = load_models(X_train, y_train_encoded)
-st.success("✅ Models loaded and trained successfully (cached)")
+X_train, X_train_filled, y_train, y_train_encoded, label_encoder, hard_ensemble, soft_ensemble = load_data_and_models()
+st.success("✅ Training data and models loaded (cached).")
 
-# ========== Upload Prediction File ==========
-predict_file = st.file_uploader("Upload prediction data file (e.g., application.xlsx)", type=["xlsx"])
+# --------- 上传预测数据 ---------
+predict_file = st.file_uploader("Upload prediction data file (Excel .xlsx)", type=["xlsx"])
 if predict_file:
     input_data = pd.read_excel(predict_file)
-    st.success("✅ Prediction data loaded successfully")
+    st.success("✅ Prediction data loaded.")
 
-    # Match column names
-    matching_columns = {}
-    processed_train_columns = [col.lower().strip() for col in X_train.columns]
-    processed_input_columns = [col.lower().strip() for col in input_data.columns]
-
-    for col_train, processed_col_train in zip(X_train.columns, processed_train_columns):
-        for col_input, processed_col_input in zip(input_data.columns, processed_input_columns):
-            if processed_col_input.startswith(processed_col_train):
-                matching_columns[col_train] = col_input
-                break
-        else:
-            matching_columns[col_train] = None
-
+    # 简化列匹配：尽量对齐训练数据的列，忽略大小写和空格
     X_input = pd.DataFrame()
-    for col_train, col_input in matching_columns.items():
-        X_input[col_train] = input_data[col_input] if col_input else 0
+    train_cols_lower = [col.lower().strip() for col in X_train.columns]
 
+    for col_train, col_train_lower in zip(X_train.columns, train_cols_lower):
+        matched_col = None
+        for col_input in input_data.columns:
+            if col_input.lower().strip() == col_train_lower:
+                matched_col = col_input
+                break
+        if matched_col:
+            X_input[col_train] = input_data[matched_col]
+        else:
+            # 缺失列用0补
+            X_input[col_train] = 0
+
+    # 缺失值用训练集均值填充
+    X_input = X_input.fillna(X_train.mean())
+
+    # 预测
     predicted_classes = hard_ensemble.predict(X_input)
     probs = soft_ensemble.predict_proba(X_input)
     confidences = np.max(probs, axis=1)
@@ -79,7 +88,7 @@ if predict_file:
     st.subheader("Prediction Results")
     st.dataframe(input_data)
 
-    # Download button
+    # 结果下载
     output = io.BytesIO()
     input_data.to_excel(output, index=False, engine="openpyxl")
     output.seek(0)
@@ -90,7 +99,7 @@ if predict_file:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # ========== SiO2-MgO Scatter Plot ==========
+    # --------- SiO2-MgO 背景图绘制 ---------
     st.subheader("SiO2-MgO Background Plot of Prediction")
     try:
         img = Image.open("MgO-SiO2.jpg")
@@ -107,9 +116,14 @@ if predict_file:
 
             for class_name in unique_classes:
                 class_indices = predicted_labels == class_name
-                ax.scatter(sio2[class_indices], mgo[class_indices],
-                           color=class_colors[class_name], label=class_name,
-                           alpha=0.7, s=150, edgecolor='k', zorder=1)
+                ax.scatter(
+                    sio2[class_indices], mgo[class_indices],
+                    color=class_colors[class_name],
+                    label=class_name,
+                    alpha=0.7, s=150,
+                    edgecolors='k',
+                    zorder=1
+                )
 
             ax.set_xlim(45, 70)
             ax.set_ylim(0, 25)
@@ -120,9 +134,84 @@ if predict_file:
             ax.grid(False)
             st.pyplot(fig)
         else:
-            st.warning("❗ SiO2 or MgO column missing in input data, unable to plot.")
+            st.warning("❗ SiO2 or MgO column missing in input data, cannot plot.")
     except Exception as e:
-        st.error(f"❌ Failed to generate plot: {e}")
+        st.error(f"❌ Failed to generate SiO2-MgO plot: {e}")
+
+    # --------- LDA降维与置信椭圆绘制 ---------
+    st.subheader("LDA Projection with 95% Confidence Ellipses")
+
+    from matplotlib.patches import Ellipse
+
+    # 填补缺失值
+    X_input_filled = X_input.fillna(X_train.mean())
+
+    # 定义颜色映射
+    category_colors = {
+        'HMA': 'lightskyblue',
+        'boninite': 'lightcoral',
+        'CA': 'sandybrown',
+        'IAT': 'plum',
+        'FAB': 'lightseagreen'
+    }
+    label_mapping = {label: name for label, name in enumerate(label_encoder.classes_)}
+
+    lda = LDA(n_components=2)
+    X_train_lda = lda.fit_transform(X_train_filled, y_train_encoded)
+    X_input_lda = lda.transform(X_input_filled)
+
+    fig1, ax1 = plt.subplots(figsize=(10, 8))
+
+    # 训练数据散点，空心圆
+    for class_idx in np.unique(y_train_encoded):
+        class_name = label_mapping[class_idx]
+        ax1.scatter(
+            X_train_lda[y_train_encoded == class_idx, 0],
+            X_train_lda[y_train_encoded == class_idx, 1],
+            label=f"Train: {class_name}",
+            alpha=0.2,
+            color=category_colors.get(class_name, 'gray'),
+            s=80,
+            marker='o',
+            facecolors='none',
+            edgecolors=category_colors.get(class_name, 'gray')
+        )
+
+    # 用户数据散点，实心叉
+    for class_name in np.unique(predicted_labels):
+        idx = input_data["Predicted Class"] == class_name
+        ax1.scatter(
+            X_input_lda[idx, 0],
+            X_input_lda[idx, 1],
+            label=f"User: {class_name}",
+            marker='X',
+            s=200,
+            edgecolor='k',
+            color=category_colors.get(class_name, 'gray')
+        )
+
+    # 添加置信椭圆
+    for class_idx in np.unique(y_train_encoded):
+        class_data = X_train_lda[y_train_encoded == class_idx]
+        gm = GaussianMixture(n_components=1).fit(class_data)
+        mean = gm.means_[0]
+        cov = gm.covariances_[0]
+        v, w = np.linalg.eigh(cov)
+        v = 2.4477 * np.sqrt(v)  # 95%置信区间
+        angle = np.degrees(np.arctan2(w[0, 1], w[0, 0]))
+        ell = Ellipse(
+            xy=mean, width=v[0], height=v[1], angle=angle,
+            edgecolor=category_colors.get(label_mapping[class_idx], 'gray'),
+            facecolor='none', lw=2, alpha=0.7
+        )
+        ax1.add_patch(ell)
+
+    ax1.set_xlabel("LDA Component 1")
+    ax1.set_ylabel("LDA Component 2")
+    ax1.legend(loc='best', fontsize=12)
+    ax1.grid(True)
+    ax1.set_title("LDA 2D Projection with 95% Confidence Ellipses")
+    st.pyplot(fig1)
 
     # ========== Subduction Event Detection ==========
     st.subheader("Initial Subduction Event Detection")
