@@ -51,32 +51,29 @@ def load_data_and_models():
 X_train, X_train_filled, y_train, y_train_encoded, label_encoder, hard_ensemble, soft_ensemble = load_data_and_models()
 st.success("✅ Training data and models loaded (cached).")
 
-# --------- 上传预测数据 ---------
-predict_file = st.file_uploader("Upload prediction data file (Excel .xlsx)", type=["xlsx"])
+# ========== Upload Prediction File ==========
+predict_file = st.file_uploader("Upload prediction data file (e.g., application.xlsx)", type=["xlsx"])
 if predict_file:
     input_data = pd.read_excel(predict_file)
-    st.success("✅ Prediction data loaded.")
+    st.success("✅ Prediction data loaded successfully")
 
-    # 简化列匹配：尽量对齐训练数据的列，忽略大小写和空格
-    X_input = pd.DataFrame()
-    train_cols_lower = [col.lower().strip() for col in X_train.columns]
+    # Match column names
+    matching_columns = {}
+    processed_train_columns = [col.lower().strip() for col in X_train.columns]
+    processed_input_columns = [col.lower().strip() for col in input_data.columns]
 
-    for col_train, col_train_lower in zip(X_train.columns, train_cols_lower):
-        matched_col = None
-        for col_input in input_data.columns:
-            if col_input.lower().strip() == col_train_lower:
-                matched_col = col_input
+    for col_train, processed_col_train in zip(X_train.columns, processed_train_columns):
+        for col_input, processed_col_input in zip(input_data.columns, processed_input_columns):
+            if processed_col_input.startswith(processed_col_train):
+                matching_columns[col_train] = col_input
                 break
-        if matched_col:
-            X_input[col_train] = input_data[matched_col]
         else:
-            # 缺失列用0补
-            X_input[col_train] = 0
+            matching_columns[col_train] = None
 
-    # 缺失值用训练集均值填充
-    X_input = X_input.fillna(X_train.mean())
+    X_input = pd.DataFrame()
+    for col_train, col_input in matching_columns.items():
+        X_input[col_train] = input_data[col_input] if col_input else 0
 
-    # 预测
     predicted_classes = hard_ensemble.predict(X_input)
     probs = soft_ensemble.predict_proba(X_input)
     confidences = np.max(probs, axis=1)
@@ -88,7 +85,7 @@ if predict_file:
     st.subheader("Prediction Results")
     st.dataframe(input_data)
 
-    # 结果下载
+    # Download button
     output = io.BytesIO()
     input_data.to_excel(output, index=False, engine="openpyxl")
     output.seek(0)
@@ -169,7 +166,7 @@ if predict_file:
             X_train_lda[y_train_encoded == class_idx, 0],
             X_train_lda[y_train_encoded == class_idx, 1],
             label=f"Train: {class_name}",
-            alpha=0.2,
+            alpha=0.1,
             color=category_colors.get(class_name, 'gray'),
             s=80,
             marker='o',
