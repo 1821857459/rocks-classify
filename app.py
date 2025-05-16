@@ -205,8 +205,8 @@ if predict_file:
 
     ax1.set_xlabel("LDA Component 1")
     ax1.set_ylabel("LDA Component 2")
-    plt.xlim(-10, 10)
-    plt.ylim(-10, 10)
+    ax1.xlim(-10, 10)
+    ax1.ylim(-10, 10)
     ax1.legend(loc='best', fontsize=12)
     ax1.grid(False)
     ax1.set_title("LDA 2D Projection with 95% Confidence Ellipses")
