@@ -166,7 +166,7 @@ if predict_file:
             X_train_lda[y_train_encoded == class_idx, 0],
             X_train_lda[y_train_encoded == class_idx, 1],
             label=f"Train: {class_name}",
-            alpha=0.3,
+            alpha=0.2,
             color=category_colors.get(class_name, 'gray'),
             s=80,
             marker='o',
@@ -199,7 +199,7 @@ if predict_file:
         ell = Ellipse(
             xy=mean, width=v[0], height=v[1], angle=angle,
             edgecolor=category_colors.get(label_mapping[class_idx], 'gray'),
-            facecolor='none', lw=2, alpha=0.9
+            facecolor='none', lw=2, alpha=1.0
         )
         ax1.add_patch(ell)
 
