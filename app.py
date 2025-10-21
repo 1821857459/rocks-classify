@@ -166,7 +166,7 @@ if predict_file:
             X_train_lda[y_train_encoded == class_idx, 0],
             X_train_lda[y_train_encoded == class_idx, 1],
             label=f"Train: {class_name}",
-            alpha=0.5,
+            alpha=0.3,
             color=category_colors.get(class_name, 'gray'),
             s=80,
             marker='o',
