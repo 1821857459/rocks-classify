@@ -146,7 +146,7 @@ if predict_file:
     # 定义颜色映射
     category_colors = {
         'HMA': 'lightskyblue',
-        'boninite': 'red',
+        'boninite': '#FF6B6B',
         'CA': 'sandybrown',
         'IAT': 'green',
         'FAB': 'lightseagreen'
