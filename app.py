@@ -214,7 +214,7 @@ if predict_file:
 
     # ========== Subduction Event Detection ==========
     st.subheader("Initial Subduction Event Detection")
-    target_classes = {'FAB', 'boninite', 'HMA'}
+    target_classes = {'FAB', 'Boninite', 'HMA'}
     detected_classes = set(input_data['Predicted Class'].unique())
     intersection = detected_classes & target_classes
 
