@@ -199,7 +199,7 @@ if predict_file:
         ell = Ellipse(
             xy=mean, width=v[0], height=v[1], angle=angle,
             edgecolor=category_colors.get(label_mapping[class_idx], 'gray'),
-            facecolor='none', lw=2, alpha=0.7
+            facecolor='none', lw=2, alpha=0.9
         )
         ax1.add_patch(ell)
 
