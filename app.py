@@ -148,7 +148,7 @@ if predict_file:
         'HMA': 'lightskyblue',
         'boninite': 'red',
         'CA': 'sandybrown',
-        'IAT': 'plum',
+        'IAT': 'green',
         'FAB': 'lightseagreen'
     }
     label_mapping = {label: name for label, name in enumerate(label_encoder.classes_)}
